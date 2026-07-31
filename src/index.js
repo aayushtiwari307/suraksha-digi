@@ -8,6 +8,7 @@ const elderRoutes = require('./routes/elderRoutes');
 const familyRoutes = require('./routes/familyRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const medicationRoutes = require('./routes/medicationRoutes');
 
 connectDB();
 
@@ -22,6 +23,7 @@ app.use('/api/elders', elderRoutes);
 app.use('/api/family', familyRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/medications', medicationRoutes);
 
 app.get('/', (req, res) => {
   res.json({

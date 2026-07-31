@@ -13,7 +13,8 @@ const alertSchema = new mongoose.Schema({
       'confusion',
       'inactivity',
       'unusual_transaction',
-      'suspicious_link'
+      'suspicious_link',
+      'medication_missed'
     ],
     required: true
   },
