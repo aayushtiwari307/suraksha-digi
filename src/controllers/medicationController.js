@@ -3,6 +3,7 @@
 const Medication = require('../models/Medication');
 const MedicationLog = require('../models/MedicationLog');
 const Alert = require('../models/Alert');
+const { callGemini } = require('../config/gemini');
 
 // Helper — today's date as "YYYY-MM-DD"
 const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -15,6 +16,39 @@ const isMissed = (scheduledTime) => {
   scheduled.setHours(hours, minutes, 0, 0);
   const grace = new Date(scheduled.getTime() + 30 * 60 * 1000);
   return now > grace;
+};
+
+// Helper — get time of day label for prompt context
+const getTimeLabel = () => {
+  const h = new Date().getHours();
+  if (h < 12) return 'morning';
+  if (h < 17) return 'afternoon';
+  return 'evening';
+};
+
+// Helper — generate bilingual medication missed messages using Gemini
+const generateMedAlertMessages = async (medicineName, scheduledTime, dosage) => {
+  const timeLabel = getTimeLabel();
+
+  const englishPrompt = `You are a caring assistant for elderly Indian users.
+An elderly person missed their ${medicineName} (${dosage}) scheduled at ${scheduledTime} this ${timeLabel}.
+Write a short, warm, caring alert message in English for their family member.
+Keep it under 2 sentences. Be gentle and informative.`;
+
+  const hindiPrompt = `आप एक बुजुर्ग भारतीय उपयोगकर्ताओं के लिए एक देखभाल करने वाले सहायक हैं।
+एक बुजुर्ग व्यक्ति आज ${timeLabel === 'morning' ? 'सुबह' : timeLabel === 'afternoon' ? 'दोपहर' : 'शाम'} ${scheduledTime} बजे अपनी ${medicineName} (${dosage}) दवाई लेना भूल गए।
+उनके परिवार के सदस्य के लिए हिंदी में एक छोटा, गर्मजोशी भरा संदेश लिखें।
+2 वाक्यों से कम रखें। विनम्र और देखभाल करने वाले स्वर में लिखें।`;
+
+  const [englishMessage, hindiMessage] = await Promise.all([
+    callGemini(englishPrompt),
+    callGemini(hindiPrompt),
+  ]);
+
+  return {
+    message: englishMessage || `${medicineName} (${scheduledTime}) was not taken by the elder.`,
+    messageHindi: hindiMessage || `${medicineName} की दवाई ${scheduledTime} बजे नहीं ली गई।`,
+  };
 };
 
 // POST /api/medications/add — family only
@@ -66,11 +100,19 @@ const getTodayMedications = async (req, res) => {
           log.status = 'missed';
           await log.save();
 
+          // Generate bilingual AI messages
+          const { message, messageHindi } = await generateMedAlertMessages(
+            med.medicineName,
+            med.scheduledTime,
+            med.dosage
+          );
+
           await Alert.create({
             elderId,
             type: 'medication_missed',
             severity: 'medium',
-            message: `${med.medicineName} (${med.scheduledTime}) was not taken by the elder.`,
+            message,
+            messageHindi,
           });
         }
 

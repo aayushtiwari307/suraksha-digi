@@ -80,6 +80,7 @@ const generateHindiGuidance = async (task) => {
 };
 
 module.exports = {
+  callGemini,
   generateSafetyMessage,
   analyzeFraudRisk,
   generateHindiGuidance
