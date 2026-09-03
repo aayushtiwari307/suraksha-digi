@@ -1,12 +1,19 @@
 const Family = require('../models/Family');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = '***REMOVED***';
+const { validateFamilyRegistration, validateLogin } = require('../utils/validators');
 
 // REGISTER FAMILY MEMBER
 const registerFamily = async (req, res) => {
   try {
+    const validation = validateFamilyRegistration(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.message
+      });
+    }
+
     const { name, phone, password } = req.body;
 
     const existingFamily = await Family.findOne({ phone });
@@ -28,7 +35,7 @@ const registerFamily = async (req, res) => {
 
     const token = jwt.sign(
       { id: family._id, role: 'family' },
-      JWT_SECRET,
+      process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
 
@@ -44,9 +51,10 @@ const registerFamily = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -54,6 +62,14 @@ const registerFamily = async (req, res) => {
 // LOGIN FAMILY MEMBER
 const loginFamily = async (req, res) => {
   try {
+    const validation = validateLogin(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.message
+      });
+    }
+
     const { phone, password } = req.body;
 
     const family = await Family.findOne({ phone });
@@ -74,7 +90,7 @@ const loginFamily = async (req, res) => {
 
     const token = jwt.sign(
       { id: family._id, role: 'family' },
-      JWT_SECRET,
+      process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
 
@@ -90,9 +106,10 @@ const loginFamily = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -114,9 +131,58 @@ const getFamilyProfile = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
+    });
+  }
+};
+
+// GET ELDERS BELONGING TO THE AUTHENTICATED FAMILY
+// Returns only the fields the frontend selector actually needs — no phone,
+// no language/isActive flags. req.user is already the authenticated
+// family (set by the `protect` middleware), so this can never return
+// another family's elders.
+const getMyElders = async (req, res) => {
+  try {
+    if (!req.user || req.user.role !== 'family') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only a family account can list elders'
+      });
+    }
+
+    const family = await Family.findById(req.user.id)
+      .populate('elders.elderId', 'name age safetyScore');
+
+    if (!family) {
+      return res.status(404).json({
+        success: false,
+        message: 'Family member not found'
+      });
+    }
+
+    const elders = family.elders
+      .filter(e => e.elderId) // guard against a stale/dangling reference
+      .map(e => ({
+        _id: e.elderId._id,
+        name: e.elderId.name,
+        age: e.elderId.age,
+        safetyScore: e.elderId.safetyScore,
+        relation: e.relation
+      }));
+
+    res.status(200).json({
+      success: true,
+      elders
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 };
@@ -124,5 +190,6 @@ const getFamilyProfile = async (req, res) => {
 module.exports = {
   registerFamily,
   loginFamily,
-  getFamilyProfile
+  getFamilyProfile,
+  getMyElders
 };

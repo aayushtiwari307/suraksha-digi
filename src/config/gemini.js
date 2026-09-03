@@ -58,13 +58,24 @@ const analyzeFraudRisk = async (transactionDetails) => {
   pressure to pay quickly, requests from strangers.`;
 
   const text = await callGemini(prompt);
+  return parseFraudAnalysisText(text);
+};
+
+// Extracted as a pure function so parsing behavior can be unit tested
+// without a network call. Never throws — malformed/unparseable text is
+// treated the same as "Gemini unavailable" (returns null), so a bad
+// model response can't leak a raw JSON.parse error to the client.
+const parseFraudAnalysisText = (text) => {
   if (!text) return null;
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
+  if (!jsonMatch) return null;
+
+  try {
     return JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
   }
-  return null;
 };
 
 const generateHindiGuidance = async (task) => {
@@ -83,5 +94,6 @@ module.exports = {
   callGemini,
   generateSafetyMessage,
   analyzeFraudRisk,
+  parseFraudAnalysisText,
   generateHindiGuidance
 };

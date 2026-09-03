@@ -1,11 +1,19 @@
 const Alert = require('../models/Alert');
 const Elder = require('../models/Elder');
-
-const JWT_SECRET = '***REMOVED***';
+const { userOwnsElder } = require('../utils/ownership');
+const { validateAlertCreation, isValidObjectId } = require('../utils/validators');
 
 // CREATE ALERT
 const createAlert = async (req, res) => {
   try {
+    const validation = validateAlertCreation(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.message
+      });
+    }
+
     const { elderId, type, severity, message, messageHindi } = req.body;
 
     // Check if elder exists
@@ -44,9 +52,10 @@ const createAlert = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -66,9 +75,10 @@ const getElderAlerts = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -78,11 +88,25 @@ const resolveAlert = async (req, res) => {
   try {
     const { alertId } = req.params;
 
+    if (!isValidObjectId(alertId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid alert ID'
+      });
+    }
+
     const alert = await Alert.findById(alertId);
     if (!alert) {
       return res.status(404).json({
         success: false,
         message: 'Alert not found'
+      });
+    }
+
+    if (!userOwnsElder(req.user, alert.elderId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to resolve this alert'
       });
     }
 
@@ -97,9 +121,10 @@ const resolveAlert = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -121,9 +146,10 @@ const getUnresolvedAlerts = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };

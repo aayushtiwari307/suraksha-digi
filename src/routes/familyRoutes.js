@@ -3,7 +3,8 @@ const router = express.Router();
 const {
   registerFamily,
   loginFamily,
-  getFamilyProfile
+  getFamilyProfile,
+  getMyElders
 } = require('../controllers/familyController');
 const protect = require('../middleware/authMiddleware');
 
@@ -13,5 +14,6 @@ router.post('/login', loginFamily);
 
 // Protected routes
 router.get('/profile', protect, getFamilyProfile);
+router.get('/elders', protect, getMyElders);
 
 module.exports = router;

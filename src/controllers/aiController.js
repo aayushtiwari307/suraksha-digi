@@ -3,12 +3,22 @@ const {
   analyzeFraudRisk,
   generateHindiGuidance
 } = require('../config/gemini');
+const { validateFraudAnalysis } = require('../utils/aiValidation');
+const { validateTransactionAnalysis } = require('../utils/validators');
 const Alert = require('../models/Alert');
 const Elder = require('../models/Elder');
 
 // ANALYZE TRANSACTION FOR FRAUD
 const analyzeTransaction = async (req, res) => {
   try {
+    const inputValidation = validateTransactionAnalysis(req.body);
+    if (!inputValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: inputValidation.message
+      });
+    }
+
     const { elderId, amount, recipient, time, description } = req.body;
 
     // Find elder
@@ -21,6 +31,10 @@ const analyzeTransaction = async (req, res) => {
     }
 
     // Prepare transaction details for Gemini
+    // NOTE: unusualAmount remains a hint included in the prompt only —
+    // it is not (yet) an independent deterministic guardrail. See
+    // Phase 4 notes: whether it should become one is a separate product
+    // decision, not made here.
     const transactionDetails = {
       amount,
       recipient,
@@ -30,18 +44,34 @@ const analyzeTransaction = async (req, res) => {
       unusualAmount: amount > 5000
     };
 
-    // Ask Gemini to analyze
-    const fraudAnalysis = await analyzeFraudRisk(transactionDetails);
+    // Ask Gemini to analyze. Gemini's raw output is untrusted model
+    // output — it is validated below before anything derived from it
+    // is persisted or returned.
+    const rawAnalysis = await analyzeFraudRisk(transactionDetails);
 
-    if (!fraudAnalysis) {
+    if (!rawAnalysis) {
       return res.status(500).json({
         success: false,
         message: 'AI analysis failed'
       });
     }
 
+    const validation = validateFraudAnalysis(rawAnalysis);
+    if (!validation.valid) {
+      // Gemini responded, but not with a structure/riskLevel we trust.
+      // Treated identically to "Gemini unavailable" — never silently
+      // downgraded to low or escalated to high.
+      return res.status(500).json({
+        success: false,
+        message: 'AI analysis failed'
+      });
+    }
+
+    const { riskLevel, reason } = validation.data;
+    let alertCreated = false;
+
     // If high risk — automatically create alert
-    if (fraudAnalysis.riskLevel === 'high') {
+    if (riskLevel === 'high') {
       const hindiMessage = await generateSafetyMessage(
         'suspicious transaction',
         `Amount: ${amount}, Recipient: ${recipient}`,
@@ -51,27 +81,29 @@ const analyzeTransaction = async (req, res) => {
       await Alert.create({
         elderId,
         type: 'fraud',
-        severity: 'high',
-        message: fraudAnalysis.reason,
+        severity: riskLevel,
+        message: reason,
         messageHindi: hindiMessage
       });
 
       // Reduce safety score
       elder.safetyScore = Math.max(0, elder.safetyScore - 20);
       await elder.save();
+      alertCreated = true;
     }
 
     res.status(200).json({
       success: true,
-      analysis: fraudAnalysis,
-      alertCreated: fraudAnalysis.riskLevel === 'high',
+      analysis: { riskLevel, reason },
+      alertCreated,
       updatedSafetyScore: elder.safetyScore
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -97,9 +129,10 @@ const getHindiGuidance = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -128,9 +161,10 @@ const getSafetyMessage = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };

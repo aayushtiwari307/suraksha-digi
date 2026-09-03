@@ -4,6 +4,8 @@ const Medication = require('../models/Medication');
 const MedicationLog = require('../models/MedicationLog');
 const Alert = require('../models/Alert');
 const { callGemini } = require('../config/gemini');
+const { userOwnsElder } = require('../utils/ownership');
+const { validateMedication, isValidObjectId } = require('../utils/validators');
 
 // Helper — today's date as "YYYY-MM-DD"
 const getTodayDate = () => new Date().toISOString().split('T')[0];
@@ -54,6 +56,11 @@ Keep it under 2 sentences. Be gentle and informative.`;
 // POST /api/medications/add — family only
 const addMedication = async (req, res) => {
   try {
+    const validation = validateMedication(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({ success: false, message: validation.message });
+    }
+
     const { elderId, medicineName, dosage, scheduledTime, frequency } = req.body;
     const createdBy = req.user.id;
 
@@ -68,7 +75,8 @@ const addMedication = async (req, res) => {
 
     res.status(201).json({ message: 'Medication added successfully', medication });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -131,7 +139,8 @@ const getTodayMedications = async (req, res) => {
 
     res.status(200).json({ date: today, medications: result });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
@@ -139,6 +148,11 @@ const getTodayMedications = async (req, res) => {
 const markTaken = async (req, res) => {
   try {
     const { medicationId } = req.params;
+
+    if (!isValidObjectId(medicationId)) {
+      return res.status(400).json({ success: false, message: 'Invalid medication ID' });
+    }
+
     const today = getTodayDate();
     const markedBy = req.user.id;
     const markedByRole = req.user.role === 'family' ? 'Family' : 'Elder';
@@ -149,6 +163,10 @@ const markTaken = async (req, res) => {
       return res.status(404).json({ message: 'No log found for today' });
     }
 
+    if (!userOwnsElder(req.user, log.elderId)) {
+      return res.status(403).json({ message: 'Not authorized to update this medication log' });
+    }
+
     log.status = 'taken';
     log.markedBy = markedBy;
     log.markedByRole = markedByRole;
@@ -157,7 +175,8 @@ const markTaken = async (req, res) => {
 
     res.status(200).json({ message: 'Marked as taken', log });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 

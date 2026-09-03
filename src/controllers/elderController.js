@@ -1,13 +1,31 @@
 const Elder = require('../models/Elder');
+const Family = require('../models/Family');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-
-const JWT_SECRET = '***REMOVED***';
+const { validateElderRegistration, validateLogin } = require('../utils/validators');
 
 // REGISTER ELDER
+// Called by an authenticated family member from the "Add Elder" page.
+// Creates the elder AND links it to the creating family so ownership
+// checks on alerts/medications/AI endpoints have something to check against.
 const registerElder = async (req, res) => {
   try {
-    const { name, phone, age, language, password } = req.body;
+    if (!req.user || req.user.role !== 'family') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only a family account can register an elder'
+      });
+    }
+
+    const validation = validateElderRegistration(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.message
+      });
+    }
+
+    const { name, phone, age, language, password, relation } = req.body;
 
     const existingElder = await Elder.findOne({ phone });
     if (existingElder) {
@@ -28,9 +46,20 @@ const registerElder = async (req, res) => {
       password: hashedPassword
     });
 
+    // Link the new elder to the creating family so ownership checks pass.
+    await Family.findByIdAndUpdate(req.user._id, {
+      $push: {
+        elders: {
+          elderId: elder._id,
+          relation: relation || 'family member',
+          canViewAlerts: true
+        }
+      }
+    });
+
     const token = jwt.sign(
       { id: elder._id, role: 'elder' },
-      JWT_SECRET,
+      process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
 
@@ -49,9 +78,10 @@ const registerElder = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -59,6 +89,14 @@ const registerElder = async (req, res) => {
 // LOGIN ELDER
 const loginElder = async (req, res) => {
   try {
+    const validation = validateLogin(req.body);
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: validation.message
+      });
+    }
+
     const { phone, password } = req.body;
 
     const elder = await Elder.findOne({ phone });
@@ -79,7 +117,7 @@ const loginElder = async (req, res) => {
 
     const token = jwt.sign(
       { id: elder._id, role: 'elder' },
-      JWT_SECRET,
+      process.env.JWT_SECRET,
       { expiresIn: '30d' }
     );
 
@@ -98,9 +136,10 @@ const loginElder = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
@@ -122,9 +161,10 @@ const getElderProfile = async (req, res) => {
     });
 
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error: ' + error.message
+      message: 'Server error'
     });
   }
 };
