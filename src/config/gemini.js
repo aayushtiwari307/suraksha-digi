@@ -47,24 +47,21 @@ const generateSafetyMessage = async (alertType, details, language) => {
   return await callGemini(prompt);
 };
 
-const analyzeFraudRisk = async (transactionDetails) => {
-  const prompt = `You are a fraud detection expert for Indian digital payments.
-  Analyze this transaction and respond with ONLY a JSON object like this:
-  {"riskLevel": "high/medium/low", "reason": "brief reason", "recommendation": "what to do"}
-  
-  Transaction details: ${JSON.stringify(transactionDetails)}
-  
-  Consider these as high risk: unknown recipients, unusual amounts, odd timing, 
-  pressure to pay quickly, requests from strangers.`;
+const generateFraudExplanation = async (evidence) => {
+  const prompt = `You are explaining a fraud-risk result for a family caring for an elderly Indian user.
+The application has already calculated the risk score and risk level. Do NOT change the risk level and do NOT invent new signals.
+Explain the supplied evidence in simple, calm English in 1-3 sentences. Mention the strongest reasons only.
 
-  const text = await callGemini(prompt);
-  return parseFraudAnalysisText(text);
+Evidence: ${JSON.stringify(evidence)}
+`;
+
+  return await callGemini(prompt);
 };
 
-// Extracted as a pure function so parsing behavior can be unit tested
-// without a network call. Never throws — malformed/unparseable text is
-// treated the same as "Gemini unavailable" (returns null), so a bad
-// model response can't leak a raw JSON.parse error to the client.
+// Backward-compatible name. It is now explanation-only; it no longer asks
+// Gemini to make the application's fraud decision.
+const analyzeFraudRisk = async (transactionDetails) => generateFraudExplanation(transactionDetails);
+
 const parseFraudAnalysisText = (text) => {
   if (!text) return null;
 
@@ -73,6 +70,34 @@ const parseFraudAnalysisText = (text) => {
 
   try {
     return JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+};
+
+
+const parseTransactionSmsWithGemini = async (rawMessage) => {
+  const prompt = `Extract transaction information from this bank SMS. Respond with ONLY JSON:
+{\"amount\":number,\"recipient\":string,\"transactionType\":\"debit|credit|transfer|unknown\",\"time\":\"HH:MM or null\",\"date\":\"DD/MM/YYYY or null\"}
+Do not invent missing values. Use null when a value is not present.
+SMS: ${rawMessage}`;
+
+  const text = await callGemini(prompt);
+  if (!text) return null;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[0]);
+    if (typeof parsed.amount !== 'number' || !Number.isFinite(parsed.amount) || parsed.amount <= 0) return null;
+    if (typeof parsed.recipient !== 'string' || parsed.recipient.trim().length === 0) return null;
+    if (!['debit', 'credit', 'transfer', 'unknown'].includes(parsed.transactionType)) return null;
+    return {
+      amount: parsed.amount,
+      recipient: parsed.recipient.trim(),
+      transactionType: parsed.transactionType,
+      time: typeof parsed.time === 'string' ? parsed.time : null,
+      date: typeof parsed.date === 'string' ? parsed.date : null,
+    };
   } catch {
     return null;
   }
@@ -94,6 +119,8 @@ module.exports = {
   callGemini,
   generateSafetyMessage,
   analyzeFraudRisk,
+  generateFraudExplanation,
+  parseTransactionSmsWithGemini,
   parseFraudAnalysisText,
   generateHindiGuidance
 };

@@ -2,56 +2,14 @@
 
 const Medication = require('../models/Medication');
 const MedicationLog = require('../models/MedicationLog');
-const Alert = require('../models/Alert');
-const { callGemini } = require('../config/gemini');
 const { userOwnsElder } = require('../utils/ownership');
 const { validateMedication, isValidObjectId } = require('../utils/validators');
+const { getISTDateString, addDaysToISTDateString, isDateInRange } = require('../utils/istTime');
 
-// Helper — today's date as "YYYY-MM-DD"
-const getTodayDate = () => new Date().toISOString().split('T')[0];
-
-// Helper — check if medication is missed (current time > scheduledTime + 30 min grace)
-const isMissed = (scheduledTime) => {
-  const now = new Date();
-  const [hours, minutes] = scheduledTime.split(':').map(Number);
-  const scheduled = new Date();
-  scheduled.setHours(hours, minutes, 0, 0);
-  const grace = new Date(scheduled.getTime() + 30 * 60 * 1000);
-  return now > grace;
-};
-
-// Helper — get time of day label for prompt context
-const getTimeLabel = () => {
-  const h = new Date().getHours();
-  if (h < 12) return 'morning';
-  if (h < 17) return 'afternoon';
-  return 'evening';
-};
-
-// Helper — generate bilingual medication missed messages using Gemini
-const generateMedAlertMessages = async (medicineName, scheduledTime, dosage) => {
-  const timeLabel = getTimeLabel();
-
-  const englishPrompt = `You are a caring assistant for elderly Indian users.
-An elderly person missed their ${medicineName} (${dosage}) scheduled at ${scheduledTime} this ${timeLabel}.
-Write a short, warm, caring alert message in English for their family member.
-Keep it under 2 sentences. Be gentle and informative.`;
-
-  const hindiPrompt = `आप एक बुजुर्ग भारतीय उपयोगकर्ताओं के लिए एक देखभाल करने वाले सहायक हैं।
-एक बुजुर्ग व्यक्ति आज ${timeLabel === 'morning' ? 'सुबह' : timeLabel === 'afternoon' ? 'दोपहर' : 'शाम'} ${scheduledTime} बजे अपनी ${medicineName} (${dosage}) दवाई लेना भूल गए।
-उनके परिवार के सदस्य के लिए हिंदी में एक छोटा, गर्मजोशी भरा संदेश लिखें।
-2 वाक्यों से कम रखें। विनम्र और देखभाल करने वाले स्वर में लिखें।`;
-
-  const [englishMessage, hindiMessage] = await Promise.all([
-    callGemini(englishPrompt),
-    callGemini(hindiPrompt),
-  ]);
-
-  return {
-    message: englishMessage || `${medicineName} (${scheduledTime}) was not taken by the elder.`,
-    messageHindi: hindiMessage || `${medicineName} की दवाई ${scheduledTime} बजे नहीं ली गई।`,
-  };
-};
+// Today's date, IST-aware — see utils/istTime.js. Replaces the old
+// `toISOString().split('T')[0]` which was UTC-based and could disagree
+// with the actual IST calendar date for the first ~5.5 hours of the day.
+const getTodayDate = () => getISTDateString();
 
 // POST /api/medications/add — family only
 const addMedication = async (req, res) => {
@@ -61,8 +19,27 @@ const addMedication = async (req, res) => {
       return res.status(400).json({ success: false, message: validation.message });
     }
 
-    const { elderId, medicineName, dosage, scheduledTime, frequency } = req.body;
+    const { elderId, medicineName, dosage, scheduledTime, frequency, durationDays, endDate } = req.body;
     const createdBy = req.user.id;
+
+    // Duration window, IST calendar dates. startDate is always "today"
+    // at creation time. endDate: explicit durationDays preset -> start +
+    // (days-1) so a "1 day" medication covers only its start date;
+    // explicit custom endDate -> used as-is; neither -> null (indefinite
+    // / "until stopped").
+    const startDate = getTodayDate();
+    let resolvedEndDate = null;
+    if (durationDays !== undefined) {
+      resolvedEndDate = addDaysToISTDateString(startDate, durationDays - 1);
+    } else if (endDate !== undefined) {
+      if (endDate < startDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'End date cannot be before the medication start date'
+        });
+      }
+      resolvedEndDate = endDate;
+    }
 
     const medication = await Medication.create({
       elderId,
@@ -71,6 +48,8 @@ const addMedication = async (req, res) => {
       scheduledTime,
       frequency: frequency || 'daily',
       createdBy,
+      startDate,
+      endDate: resolvedEndDate,
     });
 
     res.status(201).json({ message: 'Medication added successfully', medication });
@@ -88,41 +67,46 @@ const getTodayMedications = async (req, res) => {
 
     const medications = await Medication.find({ elderId, isActive: true });
 
+    // Only medications currently within their duration window appear as
+    // "today's medications" — a future-start or expired medication is
+    // filtered out here rather than deleted, so historical logs from
+    // when it WAS active stay intact and queryable.
+    const activeToday = medications.filter(med => isDateInRange(today, med.startDate, med.endDate));
+
     const result = await Promise.all(
-      medications.map(async (med) => {
+      activeToday.map(async (med) => {
         let log = await MedicationLog.findOne({
           medicationId: med._id,
           date: today,
         });
 
         if (!log) {
-          log = await MedicationLog.create({
-            medicationId: med._id,
-            elderId,
-            date: today,
-            status: 'pending',
-          });
+          try {
+            log = await MedicationLog.create({
+              medicationId: med._id,
+              elderId,
+              date: today,
+              status: 'pending',
+            });
+          } catch (createError) {
+            // The scheduler can create the same log concurrently. The
+            // compound unique index is the final guard; on a duplicate,
+            // re-fetch and continue normally instead of returning 500.
+            if (createError?.code !== 11000) throw createError;
+            log = await MedicationLog.findOne({
+              medicationId: med._id,
+              date: today,
+            });
+            if (!log) throw createError;
+          }
         }
 
-        if (log.status === 'pending' && isMissed(med.scheduledTime)) {
-          log.status = 'missed';
-          await log.save();
-
-          // Generate bilingual AI messages
-          const { message, messageHindi } = await generateMedAlertMessages(
-            med.medicineName,
-            med.scheduledTime,
-            med.dosage
-          );
-
-          await Alert.create({
-            elderId,
-            type: 'medication_missed',
-            severity: 'medium',
-            message,
-            messageHindi,
-          });
-        }
+        // Missed-detection + alert creation no longer happens here — a
+        // GET should read, not run AI calls and write Alert records as a
+        // side effect. That's now jobs/missedMedicationJob.js, which runs
+        // on its own schedule regardless of whether anyone opens this
+        // dashboard. This handler only reflects whatever status the log
+        // currently has.
 
         return {
           medicationId: med._id,
@@ -130,6 +114,8 @@ const getTodayMedications = async (req, res) => {
           dosage: med.dosage,
           scheduledTime: med.scheduledTime,
           frequency: med.frequency,
+          startDate: med.startDate,
+          endDate: med.endDate,
           logId: log._id,
           status: log.status,
           takenAt: log.takenAt || null,

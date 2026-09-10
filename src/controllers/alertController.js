@@ -1,7 +1,11 @@
 const Alert = require('../models/Alert');
 const Elder = require('../models/Elder');
+const MedicationLog = require('../models/MedicationLog');
+const Medication = require('../models/Medication');
+const Transaction = require('../models/Transaction');
 const { userOwnsElder } = require('../utils/ownership');
 const { validateAlertCreation, isValidObjectId } = require('../utils/validators');
+const { createAlertWithScoreUpdate } = require('../services/alertService');
 
 // CREATE ALERT
 const createAlert = async (req, res) => {
@@ -25,30 +29,15 @@ const createAlert = async (req, res) => {
       });
     }
 
-    // Create alert
-    const alert = await Alert.create({
-      elderId,
-      type,
-      severity: severity || 'medium',
-      message,
-      messageHindi
+    const { alert, updatedSafetyScore } = await createAlertWithScoreUpdate(elder, {
+      elderId, type, severity, message, messageHindi
     });
-
-    // Update elder safety score based on severity
-    if (severity === 'high') {
-      elder.safetyScore = Math.max(0, elder.safetyScore - 20);
-    } else if (severity === 'medium') {
-      elder.safetyScore = Math.max(0, elder.safetyScore - 10);
-    } else {
-      elder.safetyScore = Math.max(0, elder.safetyScore - 5);
-    }
-    await elder.save();
 
     res.status(201).json({
       success: true,
       message: 'Alert created successfully',
       alert,
-      updatedSafetyScore: elder.safetyScore
+      updatedSafetyScore
     });
 
   } catch (error) {
@@ -65,13 +54,32 @@ const getElderAlerts = async (req, res) => {
   try {
     const { elderId } = req.params;
 
-    const alerts = await Alert.find({ elderId })
-      .sort({ createdAt: -1 });
+    const alerts = await Alert.find({ elderId }).sort({ createdAt: -1 }).lean();
+    const enrichedAlerts = await Promise.all(alerts.map(async (alert) => {
+      if (!alert.sourceType || !alert.sourceId) return alert;
+
+      if (alert.sourceType === 'transaction') {
+        const transaction = await Transaction.findById(alert.sourceId)
+          .select('amount recipient transactionType transactionTime riskScore riskLevel')
+          .lean();
+        return { ...alert, source: transaction ? { type: 'transaction', transaction } : null };
+      }
+
+      if (alert.sourceType === 'medication') {
+        const log = await MedicationLog.findById(alert.sourceId).select('date status takenAt medicationId').lean();
+        if (!log) return { ...alert, source: null };
+        const medication = await Medication.findById(log.medicationId)
+          .select('medicineName dosage scheduledTime')
+          .lean();
+        return { ...alert, source: { type: 'medication', log, medication } };
+      }
+      return alert;
+    }));
 
     res.status(200).json({
       success: true,
-      count: alerts.length,
-      alerts
+      count: enrichedAlerts.length,
+      alerts: enrichedAlerts
     });
 
   } catch (error) {

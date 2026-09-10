@@ -37,6 +37,18 @@ const medicationSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // Duration window, IST calendar dates ("YYYY-MM-DD"). endDate null
+    // means indefinite ("until stopped"). Pre-existing medications from
+    // before this field existed have no startDate — utils/istTime.js's
+    // isDateInRange() treats that as always-active rather than
+    // excluding them, so old demo data doesn't silently disappear.
+    startDate: {
+      type: String,
+    },
+    endDate: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );

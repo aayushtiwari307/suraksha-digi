@@ -106,9 +106,33 @@ const validateElderRegistration = (body) => {
   return { valid: true };
 };
 
+
+const validateElderUpdate = (body) => {
+  if (!body || typeof body !== 'object') return { valid: false, message: 'Invalid request body' };
+  const { name, age, language, relation } = body;
+  if (name !== undefined && !isNonEmptyString(name, 100)) {
+    return { valid: false, message: 'Name must be under 100 characters' };
+  }
+  if (age !== undefined && !isValidAge(age)) {
+    return { valid: false, message: 'Age must be a valid number between 1 and 120' };
+  }
+  if (language !== undefined && !['hindi', 'english'].includes(language)) {
+    return { valid: false, message: 'Language must be either "hindi" or "english"' };
+  }
+  if (relation !== undefined && !isNonEmptyString(relation, 100)) {
+    return { valid: false, message: 'Relation must be a valid string under 100 characters' };
+  }
+  if ([name, age, language, relation].every(v => v === undefined)) {
+    return { valid: false, message: 'At least one field is required' };
+  }
+  return { valid: true };
+};
+
+const ALLOWED_DURATION_DAYS = [1, 3, 7, 14, 30];
+
 const validateMedication = (body) => {
   if (!body || typeof body !== 'object') return { valid: false, message: 'Invalid request body' };
-  const { medicineName, dosage, scheduledTime, frequency } = body;
+  const { medicineName, dosage, scheduledTime, frequency, durationDays, endDate } = body;
 
   // elderId is intentionally NOT re-validated here — this endpoint sits
   // behind verifyElderOwnership, which already guarantees elderId is a
@@ -124,6 +148,25 @@ const validateMedication = (body) => {
   }
   if (frequency !== undefined && frequency !== 'daily') {
     return { valid: false, message: 'Frequency must be "daily"' };
+  }
+
+  // Duration: either a preset durationDays, an explicit custom endDate,
+  // or neither (indefinite/"until stopped"). Not both at once.
+  if (durationDays !== undefined && endDate !== undefined) {
+    return { valid: false, message: 'Provide either durationDays or endDate, not both' };
+  }
+  if (durationDays !== undefined) {
+    if (!ALLOWED_DURATION_DAYS.includes(durationDays)) {
+      return { valid: false, message: `durationDays must be one of ${ALLOWED_DURATION_DAYS.join(', ')}` };
+    }
+  }
+  if (endDate !== undefined) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      return { valid: false, message: 'endDate must be in YYYY-MM-DD format' };
+    }
+
+    // Chronological relationship with the current IST start date is checked
+    // in medicationController.js because this validator is timezone-agnostic.
   }
 
   return { valid: true };
@@ -155,6 +198,15 @@ const validateAlertCreation = (body) => {
     return { valid: false, message: 'Message is required and must be under 1000 characters' };
   }
 
+  return { valid: true };
+};
+
+
+const validateSmsIngestion = (body) => {
+  if (!body || typeof body !== 'object') return { valid: false, message: 'Invalid request body' };
+  const { elderId, rawMessage } = body;
+  if (!isValidObjectId(elderId)) return { valid: false, message: 'Invalid elder ID' };
+  if (!isNonEmptyString(rawMessage, 2000)) return { valid: false, message: 'SMS message is required and must be under 2000 characters' };
   return { valid: true };
 };
 
@@ -191,9 +243,12 @@ module.exports = {
   validateFamilyRegistration,
   validateLogin,
   validateElderRegistration,
+  validateElderUpdate,
   validateMedication,
+  ALLOWED_DURATION_DAYS,
   validateAlertCreation,
   validateTransactionAnalysis,
+  validateSmsIngestion,
   ALLOWED_ALERT_TYPES,
   ALLOWED_ALERT_SEVERITIES
 };

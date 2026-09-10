@@ -140,8 +140,8 @@ const getFamilyProfile = async (req, res) => {
 };
 
 // GET ELDERS BELONGING TO THE AUTHENTICATED FAMILY
-// Returns only the fields the frontend selector actually needs — no phone,
-// no language/isActive flags. req.user is already the authenticated
+// Returns the fields needed by the family dashboard/management views.
+// Normal dashboard calls exclude inactive elders; management can request them explicitly. req.user is already the authenticated
 // family (set by the `protect` middleware), so this can never return
 // another family's elders.
 const getMyElders = async (req, res) => {
@@ -154,7 +154,8 @@ const getMyElders = async (req, res) => {
     }
 
     const family = await Family.findById(req.user.id)
-      .populate('elders.elderId', 'name age safetyScore');
+      .populate('elders.elderId', 'name age safetyScore isActive language');
+    const includeInactive = req.query.includeInactive === 'true';
 
     if (!family) {
       return res.status(404).json({
@@ -164,12 +165,13 @@ const getMyElders = async (req, res) => {
     }
 
     const elders = family.elders
-      .filter(e => e.elderId) // guard against a stale/dangling reference
+      .filter(e => e.elderId && (includeInactive || e.elderId.isActive !== false)) // hide inactive elders from normal dashboard selectors
       .map(e => ({
         _id: e.elderId._id,
         name: e.elderId.name,
         age: e.elderId.age,
         safetyScore: e.elderId.safetyScore,
+        isActive: e.elderId.isActive !== false,
         relation: e.relation
       }));
 

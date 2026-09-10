@@ -11,8 +11,8 @@ const familyRoutes = require('./routes/familyRoutes');
 const alertRoutes = require('./routes/alertRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const medicationRoutes = require('./routes/medicationRoutes');
-
-connectDB();
+const transactionRoutes = require('./routes/transactionRoutes');
+const { startMissedMedicationJob } = require('./jobs/missedMedicationJob');
 
 const app = express();
 
@@ -42,6 +42,7 @@ app.use('/api/family', familyRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/medications', medicationRoutes);
+app.use('/api/transactions', transactionRoutes);
 
 app.get('/', (req, res) => {
   res.json({
@@ -51,7 +52,19 @@ app.get('/', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log('SurakshaDigi Server running on port ' + PORT);
-});
+// Sequenced deliberately: DB connection must succeed before the
+// scheduler starts (it queries the DB every 5 min) or the server starts
+// accepting requests. connectDB() already process.exit(1)s internally
+// on failure, so awaiting it here means neither of the next two lines
+// ever run against a database that hasn't connected.
+const startServer = async () => {
+  await connectDB();
+  startMissedMedicationJob();
+
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log('SurakshaDigi Server running on port ' + PORT);
+  });
+};
+
+startServer();

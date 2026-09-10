@@ -3,9 +3,12 @@ const router = express.Router();
 const {
   registerElder,
   loginElder,
-  getElderProfile
+  getElderProfile,
+  updateElder,
+  setElderStatus
 } = require('../controllers/elderController');
 const protect = require('../middleware/authMiddleware');
+const { verifyElderOwnership } = require('../middleware/ownershipMiddleware');
 
 // Elder registration is initiated by an authenticated family member
 // (matches the actual product flow — elders are added from the family
@@ -16,5 +19,7 @@ router.post('/login', loginElder);
 
 // Protected routes
 router.get('/profile', protect, getElderProfile);
+router.patch('/:elderId', protect, verifyElderOwnership, updateElder);
+router.patch('/:elderId/status', protect, verifyElderOwnership, setElderStatus);
 
 module.exports = router;
