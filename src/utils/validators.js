@@ -210,6 +210,27 @@ const validateSmsIngestion = (body) => {
   return { valid: true };
 };
 
+
+const validateDevicePairing = (body) => {
+  if (!body || typeof body !== 'object') return { valid: false, message: 'Invalid request body' };
+  const pairingCode = String(body.pairingCode || '').trim().toUpperCase();
+  const deviceId = String(body.deviceId || '').trim();
+  if (!/^[A-F0-9]{12}$/.test(pairingCode)) return { valid: false, message: 'Invalid pairing code' };
+  if (!/^[A-Za-z0-9._-]{8,128}$/.test(deviceId)) return { valid: false, message: 'Invalid device ID' };
+  return { valid: true };
+};
+
+const validateDeviceSmsEvent = (body) => {
+  if (!body || typeof body !== 'object') return { valid: false, message: 'Invalid request body' };
+  const { eventId, rawMessage, sender, receivedAt } = body;
+  if (!/^[A-Za-z0-9._:-]{8,100}$/.test(String(eventId || '').trim())) return { valid: false, message: 'Invalid eventId' };
+  if (!isNonEmptyString(rawMessage, 2000)) return { valid: false, message: 'SMS message is required and must be under 2000 characters' };
+  if (sender !== undefined && typeof sender !== 'string') return { valid: false, message: 'Invalid sender' };
+  if (sender && sender.length > 120) return { valid: false, message: 'Sender is too long' };
+  if (receivedAt !== undefined && Number.isNaN(new Date(receivedAt).getTime())) return { valid: false, message: 'receivedAt must be a valid timestamp' };
+  return { valid: true };
+};
+
 const validateTransactionAnalysis = (body) => {
   if (!body || typeof body !== 'object') return { valid: false, message: 'Invalid request body' };
   const { amount, recipient, time, description } = body;
@@ -249,6 +270,8 @@ module.exports = {
   validateAlertCreation,
   validateTransactionAnalysis,
   validateSmsIngestion,
+  validateDevicePairing,
+  validateDeviceSmsEvent,
   ALLOWED_ALERT_TYPES,
   ALLOWED_ALERT_SEVERITIES
 };

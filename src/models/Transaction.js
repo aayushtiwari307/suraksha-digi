@@ -78,11 +78,36 @@ const transactionSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
+    source: {
+      type: String,
+      enum: ['simulation', 'android_sms'],
+      default: 'simulation',
+      index: true,
+    },
+    deviceId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Device',
+      default: null,
+      index: true,
+    },
+    eventId: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      default: null,
+    },
+    sender: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+      default: '',
+    },
   },
   { timestamps: true }
 );
 
 transactionSchema.index({ elderId: 1, transactionTime: -1 });
 transactionSchema.index({ elderId: 1, recipient: 1, transactionTime: -1 });
+transactionSchema.index({ deviceId: 1, eventId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

@@ -9,6 +9,8 @@ const {
 } = require('../controllers/elderController');
 const protect = require('../middleware/authMiddleware');
 const { verifyElderOwnership } = require('../middleware/ownershipMiddleware');
+const { requireFamily } = require('../middleware/roleMiddleware');
+const { requestDevicePairing } = require('../controllers/deviceController');
 
 // Elder registration is initiated by an authenticated family member
 // (matches the actual product flow — elders are added from the family
@@ -21,5 +23,6 @@ router.post('/login', loginElder);
 router.get('/profile', protect, getElderProfile);
 router.patch('/:elderId', protect, verifyElderOwnership, updateElder);
 router.patch('/:elderId/status', protect, verifyElderOwnership, setElderStatus);
+router.post('/:elderId/device-pair', protect, requireFamily, verifyElderOwnership, requestDevicePairing);
 
 module.exports = router;

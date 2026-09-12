@@ -48,6 +48,10 @@ const processTransaction = async ({
   transactionType,
   transactionTime,
   reference,
+  source = 'simulation',
+  deviceId = null,
+  eventId = null,
+  sender = '',
 }) => {
   const elder = await Elder.findById(elderId);
   if (!elder) {
@@ -60,6 +64,15 @@ const processTransaction = async ({
     const error = new Error('This elder account is inactive');
     error.statusCode = 400;
     throw error;
+  }
+
+  if (deviceId && eventId) {
+    const existingEvent = await Transaction.findOne({ deviceId, eventId });
+    if (existingEvent) {
+      const existingAlert = await Alert.findOne({ sourceType: 'transaction', sourceId: existingEvent._id })
+        .select('_id severity isResolved message messageHindi');
+      return { transaction: existingEvent, alert: existingAlert, duplicate: true };
+    }
   }
 
   const fingerprint = buildFingerprint({
@@ -144,6 +157,10 @@ const processTransaction = async ({
     riskLevel: assessment.riskLevel,
     aiReason,
     fingerprint,
+    source,
+    deviceId,
+    eventId,
+    sender,
   });
 
   let alert = null;

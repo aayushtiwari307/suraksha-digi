@@ -13,6 +13,7 @@ const aiRoutes = require('./routes/aiRoutes');
 const medicationRoutes = require('./routes/medicationRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const { startMissedMedicationJob } = require('./jobs/missedMedicationJob');
+const deviceRoutes = require('./routes/deviceRoutes');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/medications', medicationRoutes);
 app.use('/api/transactions', transactionRoutes);
+app.use('/api/devices', deviceRoutes);
 
 app.get('/', (req, res) => {
   res.json({

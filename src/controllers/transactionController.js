@@ -1,11 +1,12 @@
 const Transaction = require('../models/Transaction');
+const Alert = require('../models/Alert');
 const { parseBankSms } = require('../utils/smsParser');
 const { getISTDateString } = require('../utils/istTime');
 const { parseTransactionSmsWithGemini } = require('../config/gemini');
 const { processTransaction } = require('../services/fraudService');
 const { isValidObjectId, validateSmsIngestion } = require('../utils/validators');
 
-const parseFallbackDateTime = (dateString, timeString) => {
+const parseFallbackDateTime = (dateString, timeString, fallbackDate = new Date()) => {
   if (!timeString) return null;
   const timeMatch = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
   if (!timeMatch) return null;
@@ -23,17 +24,79 @@ const parseFallbackDateTime = (dateString, timeString) => {
     return null;
   }
 
-  const date = dateString && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)
-    ? (() => {
-      const [day, month, year] = dateString.split('/').map(Number);
-      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    })()
+  let datePart = dateString;
+  if (datePart) {
+    const dateMatch = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!dateMatch) return null;
+    const day = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]);
+    const year = Number(dateMatch[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const candidate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const check = new Date(`${candidate}T00:00:00Z`);
+    if (check.getUTCFullYear() !== year || check.getUTCMonth() + 1 !== month || check.getUTCDate() !== day) return null;
+    datePart = candidate;
+  }
+
+  const date = datePart || getISTDateString(fallbackDate);
+  const result = new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+05:30`);
+  return Number.isNaN(result.getTime()) ? null : result;
+};
+
+const processIncomingSms = async ({ elderId, rawMessage, source = 'simulation', deviceId = null, eventId = null, receivedAt = new Date(), sender = '' }) => {
+  const existingEvent = deviceId && eventId
+    ? await Transaction.findOne({ deviceId, eventId })
     : null;
 
-  const today = getISTDateString();
-  const datePart = date || today;
-  const result = new Date(`${datePart}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+05:30`);
-  return Number.isNaN(result.getTime()) ? null : result;
+  if (existingEvent) {
+    const existingAlert = await Alert.findOne({ sourceType: 'transaction', sourceId: existingEvent._id })
+      .select('_id severity isResolved message messageHindi');
+    return { transaction: existingEvent, alert: existingAlert, duplicate: true, parser: 'dedup-event' };
+  }
+
+  let parsed = parseBankSms(rawMessage);
+  let parser = 'regex';
+
+  if (parsed.success && parsed.data.transactionTimeSource === 'receivedAt') {
+    parsed.data.transactionTime = new Date(receivedAt);
+  }
+
+  const regexNeedsFallback = parsed.success &&
+    (parsed.data.recipient === 'Unknown recipient' || parsed.data.transactionType === 'unknown');
+
+  if (!parsed.success || regexNeedsFallback) {
+    const fallback = await parseTransactionSmsWithGemini(rawMessage);
+    if (!fallback) {
+      const error = new Error('Could not confidently understand this SMS. Try a clearer bank transaction message.');
+      error.statusCode = 422;
+      error.code = 'SMS_PARSE_FAILED';
+      throw error;
+    }
+
+    const fallbackDateTime = parseFallbackDateTime(fallback.date, fallback.time, receivedAt);
+    parsed = {
+      success: true,
+      data: {
+        rawMessage: rawMessage.trim(),
+        amount: fallback.amount,
+        recipient: fallback.recipient || (parsed.success ? parsed.data.recipient : 'Unknown recipient'),
+        transactionType: fallback.transactionType || (parsed.success ? parsed.data.transactionType : 'unknown'),
+        transactionTime: fallbackDateTime || (parsed.success ? parsed.data.transactionTime : new Date(receivedAt)),
+        transactionTimeSource: fallbackDateTime ? 'gemini' : (parsed.success ? parsed.data.transactionTimeSource : 'receivedAt'),
+        reference: fallback.reference || null,
+      },
+    };
+    parser = 'gemini-fallback';
+  }
+
+  return processTransaction({
+    elderId,
+    ...parsed.data,
+    source,
+    deviceId,
+    eventId,
+    sender,
+  }).then((result) => ({ ...result, parser }));
 };
 
 const ingestSms = async (req, res) => {
@@ -43,61 +106,25 @@ const ingestSms = async (req, res) => {
       return res.status(400).json({ success: false, message: validation.message });
     }
 
-    const { elderId, rawMessage } = req.body;
-    let parsed = parseBankSms(rawMessage);
-    let parser = 'regex';
-
-    // Regex is the default path. If it parsed the amount but left the
-    // recipient/type unknown, let Gemini fill only the missing structure.
-    const regexNeedsFallback = parsed.success &&
-      (parsed.data.recipient === 'Unknown recipient' || parsed.data.transactionType === 'unknown');
-
-    if (!parsed.success || regexNeedsFallback) {
-      const fallback = await parseTransactionSmsWithGemini(rawMessage);
-      if (!fallback) {
-        return res.status(422).json({
-          success: false,
-          message: 'Could not confidently understand this SMS. Try a clearer bank transaction message.',
-          code: 'SMS_PARSE_FAILED',
-        });
-      }
-
-      const fallbackDateTime = parseFallbackDateTime(fallback.date, fallback.time);
-      parsed = {
-        success: true,
-        data: {
-          rawMessage: rawMessage.trim(),
-          amount: fallback.amount,
-          recipient: fallback.recipient || (parsed.success ? parsed.data.recipient : 'Unknown recipient'),
-          transactionType: fallback.transactionType || (parsed.success ? parsed.data.transactionType : 'unknown'),
-          transactionTime: fallbackDateTime || (parsed.success ? parsed.data.transactionTime : new Date()),
-          transactionTimeSource: fallbackDateTime ? 'gemini' : (parsed.success ? parsed.data.transactionTimeSource : 'receivedAt'),
-          reference: null,
-        },
-      };
-      parser = 'gemini-fallback';
-    }
-
-    const result = await processTransaction({
-      elderId,
-      ...parsed.data,
+    const result = await processIncomingSms({
+      elderId: req.body.elderId,
+      rawMessage: req.body.rawMessage,
+      source: 'simulation',
+      receivedAt: new Date(),
     });
 
     return res.status(result.duplicate ? 200 : 201).json({
       success: true,
       message: result.duplicate ? 'This transaction was already processed' : 'SMS processed successfully',
       duplicate: result.duplicate,
-      parser,
+      parser: result.parser,
       transaction: result.transaction,
       alert: result.alert,
     });
   } catch (error) {
     console.error(error);
     const status = error.statusCode || 500;
-    return res.status(status).json({
-      success: false,
-      message: status === 500 ? 'Server error' : error.message,
-    });
+    return res.status(status).json({ success: false, message: status === 500 ? 'Server error' : error.message, ...(error.code ? { code: error.code } : {}) });
   }
 };
 
@@ -115,18 +142,11 @@ const getElderTransactions = async (req, res) => {
       .sort({ transactionTime: -1 })
       .limit(limit);
 
-    return res.status(200).json({
-      success: true,
-      count: transactions.length,
-      transactions,
-    });
+    return res.status(200).json({ success: true, count: transactions.length, transactions });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 
-module.exports = {
-  ingestSms,
-  getElderTransactions,
-};
+module.exports = { ingestSms, getElderTransactions, processIncomingSms };
