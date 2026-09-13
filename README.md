@@ -1,6 +1,12 @@
 # SurakshaDigi Android Companion — Phase D
 
-A lightweight Android companion for the SurakshaDigi portfolio project. It listens for incoming SMS broadcasts, keeps only likely transaction/bank messages, queues them locally, and securely uploads the raw event to the existing SurakshaDigi fraud-ingestion API.
+A lightweight Android companion for the **SurakshaDigi** portfolio project. It listens for incoming SMS broadcasts, keeps only likely transaction/bank messages, queues them locally, and securely uploads the raw event to the existing SurakshaDigi fraud-ingestion API.
+
+- **Backend repo:** [suraksha-digi](https://github.com/aayushtiwari307/suraksha-digi)
+- **Frontend (family dashboard) repo:** [suraksha-digi-dashboard](https://github.com/aayushtiwari307/suraksha-digi-dashboard)
+- **Live dashboard:** https://suraksha-digi-dashboard.vercel.app
+
+---
 
 ## What it does
 
@@ -21,34 +27,57 @@ A lightweight Android companion for the SurakshaDigi portfolio project. It liste
 - Pairing errors are surfaced as both status text and a Toast, with useful messages for network, invalid/expired code, and malformed server responses.
 - SMS permission state is visible and the permission result is handled explicitly.
 - Backend URL handling accepts either the Render service root or the `/api` base URL and normalizes it automatically.
-- The deployed SurakshaDigi backend URL is used as the default API base.
-- Device ID can be copied from the app.
-- Unpair requires confirmation to prevent accidental credential removal.
-- Upload scheduling provides explicit feedback and preserves pending SMS events when the server returns 401/403 so a later re-pair can upload them.
 
-## Backend dependency
+## Confirmed working end-to-end (real device test, not just simulated)
 
-The Android app uses these Phase D endpoints:
+This app has been tested against **real bank SMS on a physical phone**, not just the dashboard's "Simulate Incoming SMS" demo path. Two live ₹1 UPI transactions were correctly detected, uploaded, and appeared on the family dashboard's transaction history in real time.
 
-- `POST /api/elders/:elderId/device-pair` — family-authenticated pairing-code creation
-- `POST /api/devices/pair` — exchanges code + device ID for a scoped device JWT
-- `POST /api/devices/sms-event` — authenticated SMS event ingestion
-- `DELETE /api/devices/me` — unpair the companion
+Two real bugs were found and fixed to get to this working state:
 
-## Build
+1. **Compile bug:** `SmsReceiver.java`'s SHA-256 event-ID logic could throw a checked `NoSuchAlgorithmException` from inside `onReceive()`, which cannot declare `throws`. Fixed by catching it internally and rethrowing as an unchecked exception.
+2. **Silent SMS-drop bug (the real root cause of missed real-world SMS):** `SmsReceiver` was declared with `android:exported="false"` in `AndroidManifest.xml`. `SMS_RECEIVED` is a system broadcast sent by a different UID (the Telephony framework, not this app), so Android requires `exported="true"` for the receiver to ever receive it. With `false`, Android silently dropped the broadcast — no crash, no error, nothing in Logcat — which is why real bank SMS never showed up even though SMS permission was granted and the device was correctly paired. Fixed by setting `exported="true"`.
 
-Open the project in Android Studio and let it use the configured Android Gradle Plugin. The project is Java-only and intentionally avoids third-party Android libraries.
+On some phones (notably Xiaomi/MIUI), you may also need to manually set **Battery saver → No restrictions** and enable **Autostart** for this app, or the OS can still block background SMS delivery independently of the manifest setting.
 
-The configured API base is:
+## Tech stack
 
-`https://suraksha-digi-backend.onrender.com/api`
+- **Language:** Java
+- **Platform:** Android SDK (native, no framework)
+- **Background work:** `BroadcastReceiver` (SMS interception), `JobScheduler` (reliable retry/upload)
+- **Local storage:** SQLite (pending-event queue), Android Keystore (encrypted device token storage)
+- **Networking:** Plain HTTPS calls to the SurakshaDigi backend REST API
 
-You can also paste the Render service root; the app will add `/api` automatically.
+## Security & privacy notes
 
-Generate a debug APK from Android Studio and install it on the test phone for controlled portfolio/demo testing.
+- The app does **not** read the phone's SMS inbox/history — it only reacts to new incoming messages matching a transaction-like pattern.
+- The device's authentication token is encrypted using the Android Keystore before being stored on-device.
+- Pending events remain local until the backend confirms receipt — nothing is discarded on a failed upload.
+- Backend communication requires HTTPS; cleartext traffic is disabled at the manifest level.
 
+## Setup / build instructions
 
-## Final correctness fixes
-- Explicit unpair clears the local SMS queue and cancels the pending upload job.
-- SMS event IDs are deterministic SHA-256 hashes of normalized sender, received timestamp, and message text, so duplicate deliveries are locally deduplicated.
-- SMS ingestion, upload, and unpair use a shared in-process device-state lock to prevent a stale queue event from racing across an explicit unpair.
+**Requirements:** Android Studio (recent stable version), a physical Android device for full testing (emulators cannot receive real SMS).
+
+1. Clone this repo:
+   ```
+   git clone https://github.com/aayushtiwari307/suraksha-digi-android.git
+   ```
+2. Open the project root in Android Studio and let Gradle sync.
+3. Build → Build Bundle(s) / APK(s) → Build APK(s).
+4. Install the generated `app-debug.apk` on an Android phone.
+5. Open the app, enter the backend API URL (e.g. `https://suraksha-digi-backend.onrender.com/api`).
+6. From the SurakshaDigi web dashboard, generate a pairing code for an elder (valid for 10 minutes).
+7. Enter the code in the app and tap **Pair Android device**.
+8. Grant SMS permission when prompted.
+9. On Xiaomi/MIUI (and some other OEM skins), also allow the app to run in the background and disable battery optimization for it — see note above.
+
+## Known limitations (honest scope notes)
+
+- This is a portfolio/demo project, not a published or production app — it hasn't gone through Play Store review, security auditing, or multi-device-manufacturer QA.
+- SMS parsing is regex/keyword-based and tuned to common Indian bank SMS formats; it will not catch every possible wording variation.
+- There is currently no in-app forgot-password recovery for the associated family account (handled at the backend/dashboard level).
+- Only one Android device can currently be paired per elder profile at a time.
+
+## License
+
+Personal portfolio project. Not licensed for commercial use.
