@@ -1,0 +1,5 @@
+com.surakshadigi.companion:string/app_name = 0x7f020000
+com.surakshadigi.companion:color/surface = 0x7f010002
+com.surakshadigi.companion:style/Theme.SurakshaDigi = 0x7f030000
+com.surakshadigi.companion:color/primary = 0x7f010001
+com.surakshadigi.companion:color/accent = 0x7f010000

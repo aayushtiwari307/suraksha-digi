@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#0F766E</color>
+    <color name="primary">#0F766E</color>
+    <color name="surface">#F6F8FC</color>
+    <string name="app_name">SurakshaDigi Companion</string>
+    <style name="Theme.SurakshaDigi" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:navigationBarColor">@color/surface</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

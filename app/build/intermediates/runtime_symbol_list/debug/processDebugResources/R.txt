@@ -1,0 +1,5 @@
+int color accent 0x7f010000
+int color primary 0x7f010001
+int color surface 0x7f010002
+int string app_name 0x7f020000
+int style Theme_SurakshaDigi 0x7f030000
