@@ -137,6 +137,64 @@ const resolveAlert = async (req, res) => {
   }
 };
 
+// RECORD FRAUD ALERT OUTCOME
+const recordFraudOutcome = async (req, res) => {
+  try {
+    const { elderId, alertId } = req.params;
+    const { outcome } = req.body || {};
+
+    if (!isValidObjectId(elderId) || !isValidObjectId(alertId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid elder or alert ID'
+      });
+    }
+
+    if (!['confirmed_fraud', 'false_positive'].includes(outcome)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Outcome must be confirmed_fraud or false_positive'
+      });
+    }
+
+    const alert = await Alert.findOne({ _id: alertId, elderId });
+    if (!alert) {
+      return res.status(404).json({
+        success: false,
+        message: 'Alert not found'
+      });
+    }
+
+    if (alert.type !== 'fraud') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only fraud alerts can have a fraud outcome'
+      });
+    }
+
+    alert.reviewOutcome = outcome;
+    alert.reviewedBy = req.user.id;
+    alert.reviewedAt = new Date();
+    // A real-world outcome means the family has reviewed the alert. Keep the
+    // existing isResolved concept rather than adding a second "closed" flag.
+    alert.isResolved = true;
+    alert.resolvedBy = req.user.id;
+    await alert.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Fraud alert outcome recorded successfully',
+      alert
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
 // GET UNRESOLVED ALERTS
 const getUnresolvedAlerts = async (req, res) => {
   try {
@@ -166,5 +224,6 @@ module.exports = {
   createAlert,
   getElderAlerts,
   resolveAlert,
+  recordFraudOutcome,
   getUnresolvedAlerts
 };

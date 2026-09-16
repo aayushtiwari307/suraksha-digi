@@ -54,11 +54,23 @@ const pairDevice = async (req, res) => {
     const code = normalizeCode(req.body?.pairingCode);
     const deviceId = String(req.body?.deviceId || '').trim();
 
-    const pairing = await Device.findOne({
-      pairingCodeHash: hashValue(code),
-      isActive: false,
-      pairingCodeExpiresAt: { $gt: new Date() },
-    });
+    // Atomically claim the pairing row: the filter (unused code, not
+    // expired) and the update (immediately clear the code) happen as one
+    // operation, so two concurrent requests racing on the same code cannot
+    // both pass. The loser's findOneAndUpdate simply matches nothing,
+    // because by the time it runs the code has already been cleared by the
+    // winner. If a later step in this handler fails, the code is not
+    // reusable — that's an accepted trade-off (same as any one-time code);
+    // the family can just request a new one.
+    const pairing = await Device.findOneAndUpdate(
+      {
+        pairingCodeHash: hashValue(code),
+        isActive: false,
+        pairingCodeExpiresAt: { $gt: new Date() },
+      },
+      { $set: { pairingCodeHash: null, pairingCodeExpiresAt: null } },
+      { new: true }
+    );
 
     if (!pairing) {
       return res.status(400).json({ success: false, message: 'Pairing code is invalid or expired' });

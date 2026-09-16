@@ -15,6 +15,22 @@ const familySchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  email: {
+    type: String,
+    required: true,
+    lowercase: true,
+    trim: true
+  },
+  passwordResetTokenHash: {
+    type: String,
+    default: null,
+    select: false
+  },
+  passwordResetExpiresAt: {
+    type: Date,
+    default: null,
+    select: false
+  },
   elders: [
     {
       elderId: {

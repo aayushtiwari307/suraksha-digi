@@ -38,6 +38,19 @@ const alertSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Family'
   },
+  reviewOutcome: {
+    type: String,
+    enum: ['unreviewed', 'confirmed_fraud', 'false_positive'],
+    default: 'unreviewed'
+  },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Family'
+  },
+  reviewedAt: {
+    type: Date,
+    default: null
+  },
   // What caused this alert — lets the dashboard link an alert back to
   // its underlying event (e.g. which MedicationLog, later which
   // Transaction). Optional/non-breaking: existing alert-creation call

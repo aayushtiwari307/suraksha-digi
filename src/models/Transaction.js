@@ -10,6 +10,12 @@ const fraudSignalsSchema = new mongoose.Schema(
     amountDeviationRatio: { type: Number, default: 0 },
     historicalAverageAmount: { type: Number, default: 0 },
     recentTransactionCount: { type: Number, default: 0 },
+    transactionCount: { type: Number, default: 0 },
+    confidenceTier: {
+      type: String,
+      enum: ['low', 'partial', 'full'],
+      default: 'low'
+    },
     matchedKeywords: { type: [String], default: [] },
     reasonCodes: { type: [String], default: [] },
   },
@@ -84,17 +90,25 @@ const transactionSchema = new mongoose.Schema(
       default: 'simulation',
       index: true,
     },
+    // No `default: null` here on purpose. Mongoose applies a schema default
+    // whenever a path is `undefined`, which would make every simulation
+    // transaction (no real device) explicitly store deviceId: null,
+    // eventId: null. A *compound* sparse index (see below) indexes a
+    // document as soon as at least one of its fields is present — even
+    // with a null value — so every such document would collide on the
+    // same (null, null) index entry and every simulation transaction after
+    // the first would fail to insert with E11000. Leaving these fields
+    // genuinely absent for simulation transactions keeps them out of the
+    // index entirely.
     deviceId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Device',
-      default: null,
       index: true,
     },
     eventId: {
       type: String,
       trim: true,
       maxlength: 100,
-      default: null,
     },
     sender: {
       type: String,
@@ -108,6 +122,19 @@ const transactionSchema = new mongoose.Schema(
 
 transactionSchema.index({ elderId: 1, transactionTime: -1 });
 transactionSchema.index({ elderId: 1, recipient: 1, transactionTime: -1 });
-transactionSchema.index({ deviceId: 1, eventId: 1 }, { unique: true, sparse: true });
+// Uniqueness is intentionally scoped to Android-originated events only.
+// Simulation transactions never carry deviceId/eventId and are never
+// subject to this constraint — the fingerprint field (above) is what
+// de-duplicates those.
+transactionSchema.index(
+  { deviceId: 1, eventId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      deviceId: { $exists: true },
+      eventId: { $exists: true },
+    },
+  }
+);
 
 module.exports = mongoose.model('Transaction', transactionSchema);

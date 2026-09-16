@@ -3,7 +3,7 @@ const Alert = require('../models/Alert');
 const { parseBankSms } = require('../utils/smsParser');
 const { getISTDateString } = require('../utils/istTime');
 const { parseTransactionSmsWithGemini } = require('../config/gemini');
-const { processTransaction } = require('../services/fraudService');
+const { processTransaction, resolveExistingDeviceEvent } = require('../services/fraudService');
 const { isValidObjectId, validateSmsIngestion } = require('../utils/validators');
 
 const parseFallbackDateTime = (dateString, timeString, fallbackDate = new Date()) => {
@@ -44,14 +44,24 @@ const parseFallbackDateTime = (dateString, timeString, fallbackDate = new Date()
 };
 
 const processIncomingSms = async ({ elderId, rawMessage, source = 'simulation', deviceId = null, eventId = null, receivedAt = new Date(), sender = '' }) => {
-  const existingEvent = deviceId && eventId
-    ? await Transaction.findOne({ deviceId, eventId })
-    : null;
-
-  if (existingEvent) {
-    const existingAlert = await Alert.findOne({ sourceType: 'transaction', sourceId: existingEvent._id })
-      .select('_id severity isResolved message messageHindi');
-    return { transaction: existingEvent, alert: existingAlert, duplicate: true, parser: 'dedup-event' };
+  // Fast path for an exact Android event retry: skip re-parsing the SMS.
+  // This matters more than it looks — the Gemini fallback below fires
+  // whenever the regex parser yields an unknown recipient or unknown
+  // transaction type, which is exactly the profile of a scam SMS. Without
+  // this early return, every retry of a scam SMS would trigger a fresh
+  // Gemini call, and a Gemini outage would turn a harmless duplicate into
+  // a 422 error that the phone would then retry again.
+  //
+  // Crucially, this does NOT re-implement duplicate detection or alert
+  // recovery. It delegates to the single shared implementation in
+  // fraudService, which also repairs a missing HIGH-risk alert. A previous
+  // version of this function had its own parallel copy of that check with
+  // a raw `Alert.findOne` and no recovery step, which meant the real
+  // Android retry path silently never got the recovery it most needed.
+  // Keep exactly one implementation — do not re-inline this logic here.
+  if (deviceId && eventId) {
+    const existingEvent = await resolveExistingDeviceEvent({ deviceId, eventId });
+    if (existingEvent) return { ...existingEvent, parser: 'dedup-event' };
   }
 
   let parsed = parseBankSms(rawMessage);

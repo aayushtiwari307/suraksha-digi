@@ -4,10 +4,12 @@ const {
   createAlert,
   getElderAlerts,
   resolveAlert,
+  recordFraudOutcome,
   getUnresolvedAlerts
 } = require('../controllers/alertController');
 const protect = require('../middleware/authMiddleware');
 const { verifyElderOwnership } = require('../middleware/ownershipMiddleware');
+const { requireFamily } = require('../middleware/roleMiddleware');
 
 // All routes are protected + ownership-checked
 router.post('/create', protect, verifyElderOwnership, createAlert);
@@ -16,5 +18,6 @@ router.get('/unresolved/:elderId', protect, verifyElderOwnership, getUnresolvedA
 // resolveAlert is keyed by alertId, not elderId — ownership is checked
 // inside the controller after the alert (and its elderId) is loaded.
 router.put('/resolve/:alertId', protect, resolveAlert);
+router.put('/feedback/:elderId/:alertId', protect, requireFamily, verifyElderOwnership, recordFraudOutcome);
 
 module.exports = router;

@@ -20,6 +20,11 @@ const isNonEmptyString = (val, maxLength = 500) => {
 const isValidPhone = (val) =>
   typeof val === 'string' && /^[0-9]{10}$/.test(val);
 
+const isValidEmail = (val) =>
+  typeof val === 'string' &&
+  val.trim().length <= 254 &&
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+
 // 24-hour HH:MM — matches what <input type="time"> always produces,
 // and what isMissed() assumes when it splits on ':'.
 const isValidTimeString = (val) =>
@@ -43,13 +48,16 @@ const isValidAge = (val) => isFiniteNumber(val) && Number(val) > 0 && Number(val
 
 const validateFamilyRegistration = (body) => {
   if (!body || typeof body !== 'object') return { valid: false, message: 'Invalid request body' };
-  const { name, phone, password } = body;
+  const { name, phone, email, password } = body;
 
   if (!isNonEmptyString(name, 100)) {
     return { valid: false, message: 'Name is required and must be under 100 characters' };
   }
   if (!isValidPhone(phone)) {
     return { valid: false, message: 'Phone number must be exactly 10 digits' };
+  }
+  if (!isValidEmail(email)) {
+    return { valid: false, message: 'A valid email address is required' };
   }
   if (typeof password !== 'string' || password.length === 0) {
     return { valid: false, message: 'Password is required' };
@@ -263,6 +271,7 @@ module.exports = {
   isValidAge,
   validateFamilyRegistration,
   validateLogin,
+  isValidEmail,
   validateElderRegistration,
   validateElderUpdate,
   validateMedication,

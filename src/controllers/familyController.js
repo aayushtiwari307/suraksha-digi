@@ -14,7 +14,7 @@ const registerFamily = async (req, res) => {
       });
     }
 
-    const { name, phone, password } = req.body;
+    const { name, phone, email, password } = req.body;
 
     const existingFamily = await Family.findOne({ phone });
     if (existingFamily) {
@@ -30,6 +30,7 @@ const registerFamily = async (req, res) => {
     const family = await Family.create({
       name,
       phone,
+      email: email.trim().toLowerCase(),
       password: hashedPassword
     });
 

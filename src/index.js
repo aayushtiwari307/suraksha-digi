@@ -1,4 +1,4 @@
-﻿const dotenv = require('dotenv');
+const dotenv = require('dotenv');
 dotenv.config();
 
 const express = require('express');
@@ -14,6 +14,7 @@ const medicationRoutes = require('./routes/medicationRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const { startMissedMedicationJob } = require('./jobs/missedMedicationJob');
 const deviceRoutes = require('./routes/deviceRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api/elders/register', authLimiter);
 
 app.use('/api/elders', elderRoutes);
 app.use('/api/family', familyRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/medications', medicationRoutes);
