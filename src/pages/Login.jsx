@@ -113,9 +113,14 @@ function Login() {
           </form>
 
           {role === 'family' && (
-            <p style={s.footerLink}>
-              New here? <Link to="/register" style={{ color: '#1e88e5', fontWeight: 500 }}>Create an account</Link>
-            </p>
+            <>
+              <p style={s.forgotLink}>
+                <Link to="/forgot-password" style={{ color: '#1e88e5', fontWeight: 500 }}>Forgot password?</Link>
+              </p>
+              <p style={s.footerLink}>
+                New here? <Link to="/register" style={{ color: '#1e88e5', fontWeight: 500 }}>Create an account</Link>
+              </p>
+            </>
           )}
         </div>
       </div>
@@ -154,7 +159,8 @@ const s = {
   label: { display: 'block', fontSize: '11px', fontWeight: 600, color: '#888', marginBottom: '6px', letterSpacing: '0.4px', textTransform: 'uppercase' },
   input: { width: '100%', height: '42px', padding: '0 14px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fafafa', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#0a1628' },
   btn: { width: '100%', height: '42px', background: '#0a1628', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', marginTop: '6px', letterSpacing: '0.2px' },
-  footerLink: { textAlign: 'center', fontSize: '13px', color: '#888', marginTop: '18px' }
+  forgotLink: { textAlign: 'center', fontSize: '13px', margin: '15px 0 0' },
+  footerLink: { textAlign: 'center', fontSize: '13px', color: '#888', marginTop: '10px' }
 };
 
 export default Login;

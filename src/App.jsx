@@ -7,6 +7,8 @@ import AddElder from './pages/AddElder';
 import AddMedication from './pages/AddMedication';
 import SimulateSms from './pages/SimulateSms';
 import ManageElders from './pages/ManageElders';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 function ProtectedRoute({ children }) {
   const { family, elder } = useAuth();
@@ -28,6 +30,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/dashboard"
         element={

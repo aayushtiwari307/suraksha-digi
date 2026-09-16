@@ -90,6 +90,21 @@ function Dashboard() {
     }
   };
 
+  const recordFraudOutcome = async (alertId, outcome) => {
+    try {
+      await API.put(`/alerts/feedback/${effectiveElderId}/${alertId}`, { outcome });
+      setAlerts(prev => prev.map(a => a._id === alertId ? {
+        ...a,
+        isResolved: true,
+        reviewOutcome: outcome,
+        reviewedBy: family?.id,
+        reviewedAt: new Date().toISOString(),
+      } : a));
+    } catch (err) {
+      setAlertError(err.response?.data?.message || 'Failed to record alert outcome');
+    }
+  };
+
   const fetchMedications = async (idOverride, silent = false) => {
     const id = idOverride || effectiveElderId;
     if (!id) return;
@@ -287,9 +302,21 @@ function Dashboard() {
                   {ALERT_LABELS[alert.type] || alert.type}
                 </span>
               </div>
-              {alert.isResolved
-                ? <span style={s.resolvedTag}>✅ Resolved</span>
-                : <button onClick={() => resolveAlert(alert._id)} style={s.resolveBtn}>Mark resolved</button>
+              {alert.type === 'fraud' && alert.reviewOutcome && alert.reviewOutcome !== 'unreviewed'
+                ? <span style={{
+                    ...s.outcomeTag,
+                    color: alert.reviewOutcome === 'confirmed_fraud' ? '#dc2626' : '#16a34a'
+                  }}>
+                    {alert.reviewOutcome === 'confirmed_fraud' ? '🚨 Confirmed fraud' : '✅ False positive'}
+                  </span>
+                : alert.type === 'fraud' && !alert.isResolved
+                  ? <div style={s.feedbackRow}>
+                      <button onClick={() => recordFraudOutcome(alert._id, 'confirmed_fraud')} style={s.fraudFeedbackBtn}>Confirm fraud</button>
+                      <button onClick={() => recordFraudOutcome(alert._id, 'false_positive')} style={s.falsePositiveBtn}>False positive</button>
+                    </div>
+                  : alert.isResolved
+                    ? <span style={s.resolvedTag}>✅ Resolved</span>
+                    : <button onClick={() => resolveAlert(alert._id)} style={s.resolveBtn}>Mark resolved</button>
               }
             </div>
             <p style={s.alertMsg}>{alert.message}</p>
@@ -465,6 +492,10 @@ const s = {
   severityPill: { fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '100px', textTransform: 'capitalize' },
   alertTypeTag: { fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px' },
   resolvedTag: { fontSize: '12px', color: '#16a34a', fontWeight: 600 },
+  outcomeTag: { fontSize: '12px', fontWeight: 600 },
+  feedbackRow: { display: 'flex', gap: '6px' },
+  fraudFeedbackBtn: { padding: '6px 10px', background: '#fff1f2', color: '#be123c', border: '0.5px solid #fda4af', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' },
+  falsePositiveBtn: { padding: '6px 10px', background: '#f0fdf4', color: '#15803d', border: '0.5px solid #86efac', borderRadius: '6px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' },
   resolveBtn: { padding: '6px 14px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' },
   alertMsg: { fontSize: '14px', color: '#0f172a', lineHeight: 1.6, margin: '0 0 6px' },
   alertHindi: { fontSize: '13px', color: '#64748b', lineHeight: 1.7, margin: '0 0 8px' },

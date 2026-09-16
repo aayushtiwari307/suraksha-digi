@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 function Register() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,7 @@ function Register() {
     setError('');
     setLoading(true);
     try {
-      const res = await API.post('/family/register', { name, phone, password });
+      const res = await API.post('/family/register', { name, phone, email, password });
       login(res.data.token, res.data.family);
       navigate('/dashboard');
     } catch (err) {
@@ -67,6 +68,18 @@ function Register() {
             <div style={s.field}>
               <label style={s.label}>Phone Number</label>
               <input style={s.input} type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="9876543210" autoComplete="off" required />
+            </div>
+            <div style={s.field}>
+              <label style={s.label}>Email Address</label>
+              <input
+                style={s.input}
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                required
+              />
             </div>
             <div style={s.field}>
               <label style={s.label}>Password</label>
