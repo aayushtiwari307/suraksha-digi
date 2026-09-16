@@ -1,88 +1,325 @@
 # SurakshaDigi — Backend
 
-**Predictive digital safety platform for elderly care.** Family members monitor an elder's medication adherence and get alerted to suspicious financial activity, without the elder needing to do anything technical themselves.
+> Node.js / Express backend for the SurakshaDigi elder-safety, medication-monitoring, and fraud-detection platform
 
-**Live API:** https://suraksha-digi-backend.onrender.com
-**Frontend:** https://suraksha-digi-dashboard.vercel.app
-**Frontend repo:** https://github.com/aayushtiwari307/suraksha-digi-dashboard
+The backend provides authentication, family-scoped elder management, medication tracking, automated missed-dose detection, transaction ingestion, deterministic fraud scoring, Gemini-based explanations, alerts, and secure Android device pairing/SMS ingestion.
 
-> Free-tier Render hosting — the API spins down after inactivity, so the first request after a while may take ~30–50s to wake up.
+**Backend repository:** https://github.com/aayushtiwari307/suraksha-digi  
+**Live API:** https://suraksha-digi-backend.onrender.com  
+**Frontend dashboard:** https://suraksha-digi-dashboard.vercel.app  
+**Android companion:** https://github.com/aayushtiwari307/suraksha-digi-android
 
 ---
 
-## What this solves
+## What this does
 
-Elderly people living independently or semi-independently face two quiet risks that often go unnoticed until it's too late: missed medication, and financial scams (UPI/bank fraud is a real, common attack vector against elderly users in India). This app gives family members a single dashboard for both — without requiring the elder to install anything or actively report problems themselves.
+SurakshaDigi's backend is the central application layer connecting the family dashboard, Android companion, MongoDB, and Gemini.
 
-## How it actually works
+It handles:
 
-### Medication tracking
-- Family adds an elder's medication schedule (dose, time, duration).
-- A background job (`node-cron`, every 5 minutes) independently checks for missed doses — detection does **not** depend on anyone opening the dashboard. This was a deliberate fix: the first version only checked for missed doses when a GET request happened to hit the dashboard, which meant a dose could be missed for days with zero alert if nobody opened the app.
-- All date/time logic runs through a single IST-aware (`Asia/Kolkata`) time utility. This mattered more than it sounds — an earlier version silently used UTC-based date boundaries (`toISOString()`), which meant "today's medications" could resolve to the wrong day depending on the time of day. Fixed once, used everywhere, so it can't drift out of sync between the scheduler and the API.
-- Alert creation is idempotent at two layers: an `alertCreated` flag on each log (so a failed alert-send is retried without re-detecting the same miss), and a database-level unique index on `Alert{sourceType, sourceId}` as a hard guarantee against duplicate alerts, even under concurrent execution.
+- Family and Elder authentication with JWT
+- Role and ownership enforcement
+- Elder management and family-scoped access
+- Medication scheduling and missed-dose monitoring
+- Transaction SMS parsing and ingestion
+- Deterministic fraud signal calculation and risk classification
+- Gemini-generated risk explanations and elder guidance
+- Alert creation, resolution, and source linking
+- Android device pairing, device authentication, and SMS ingestion
 
-### Fraud detection
-- A "Simulate Incoming SMS" flow lets a family member paste a bank/UPI transaction SMS. This is **explicitly a simulation** — there's no real telecom/bank/UPI integration, and I'm not pretending otherwise. Building a real SMS-interception pipeline was out of scope for what this project needed to prove.
-- What *is* real: the SMS is parsed by a regex-first deterministic parser (Gemini is only a fallback for SMS formats the regex can't confidently handle, and its fallback output is validated before being trusted).
-- Every transaction is checked against that specific elder's own transaction history for signals: new/unfamiliar recipient, deviation from their usual amount range, unusual time of day, transaction velocity, and known scam-message keywords.
-- **The risk score and risk level are computed entirely in application code** — deterministically, from those signals. Gemini is called *after* the decision is already made, purely to generate a human-readable explanation of why something was flagged. It never has authority over whether an alert fires. I made this call deliberately: I didn't want a fraud-detection feature where the actual decision-making is an opaque LLM call that could hallucinate a wrong verdict.
-- Duplicate transaction submissions are deduplicated via a SHA-256 fingerprint, enforced both in application logic and at the database level.
+---
 
-### Elder management
-Family members can add, edit, and deactivate/reactivate elders. Deactivating an elder correctly excludes them from new medication scheduling and fraud monitoring — this took a real bug fix to get consistent, since the two features had been checking elder status independently and could disagree with each other.
+## Quick demo path — no Android setup required
 
-## Tech stack
+The frontend's **Simulate SMS** page sends a bank-style transaction SMS directly to the backend.
 
-- **Runtime:** Node.js, Express
-- **Database:** MongoDB (Atlas), Mongoose
-- **Auth:** JWT, bcrypt
-- **AI:** Google Gemini (via raw REST calls, not the SDK) — used only for explanation text, never for decisions
-- **Scheduling:** node-cron
-- **Security:** Helmet, express-rate-limit, server-side ownership enforcement on every elder-scoped route (never trusted from the frontend)
+It uses the **same fraud-processing pipeline** that receives events from the Android companion:
 
-## API overview
+```text
+Simulate SMS
+      │
+      └──────────────┐
+                     ↓
+              SMS ingestion
+                     ↓
+              SMS parsing
+                     ↓
+           Fraud signal analysis
+                     ↓
+             Risk score / level
+                     ↓
+            Gemini explanation
+                     ↓
+                  Alert
+```
 
-| Area | Routes |
+This provides a quick way to demonstrate the backend fraud engine without installing or pairing an Android device.
+
+---
+
+## Real Android flow
+
+For the full end-to-end path:
+
+```text
+Bank SMS on Android
+        ↓
+Android Companion
+        ↓ HTTPS + scoped device JWT
+POST /api/devices/sms-event
+        ↓
+SMS parsing / fallback parsing
+        ↓
+Deterministic fraud signals
+        ↓
+Risk score + risk level
+        ↓
+Gemini explanation
+        ↓
+Transaction + Alert
+        ↓
+Family Dashboard
+```
+
+The Android companion and the dashboard therefore feed the **same backend fraud pipeline** rather than separate scoring systems.
+
+---
+
+## Fraud Detection
+
+Risk is decided by the application, not by Gemini.
+
+The backend calculates these deterministic signals:
+
+| Signal | Weight |
+|---|---:|
+| New recipient | 25 |
+| Unusual amount | 25 |
+| Unusual time | 15 |
+| High velocity | 20 |
+| Scam keyword | 25 |
+
+The total score is capped at 100 and mapped to:
+
+```text
+0–29   → LOW
+30–59  → MEDIUM
+60–100 → HIGH
+```
+
+The amount/time/velocity checks use the elder's recent transaction history where applicable, and the implementation also handles first-history cases with explicit thresholds.
+
+Gemini receives the already-calculated evidence and generates the explanation. It is explicitly instructed not to change the application's risk level or invent additional signals.
+
+---
+
+## Core API Areas
+
+### Authentication
+
+```text
+POST /api/family/register
+POST /api/family/login
+POST /api/elders/register
+POST /api/elders/login
+```
+
+Protected profile/management routes are under `/api/family` and `/api/elders`.
+
+### Elder and medication management
+
+```text
+GET   /api/family/profile
+GET   /api/family/elders
+GET   /api/elders/profile
+PATCH /api/elders/:elderId
+PATCH /api/elders/:elderId/status
+POST  /api/elders/:elderId/device-pair
+
+POST /api/medications/add
+GET  /api/medications/elder/:elderId
+PUT  /api/medications/mark-taken/:medicationId
+```
+
+### Fraud / transactions
+
+```text
+POST /api/transactions/ingest-sms
+GET  /api/transactions/elder/:elderId
+```
+
+### Alerts
+
+```text
+POST /api/alerts/create
+GET  /api/alerts/elder/:elderId
+GET  /api/alerts/unresolved/:elderId
+PUT  /api/alerts/resolve/:alertId
+```
+
+### AI helpers
+
+```text
+POST /api/ai/analyze-transaction
+POST /api/ai/hindi-guidance
+POST /api/ai/safety-message
+```
+
+### Android device integration
+
+```text
+POST   /api/devices/pair
+POST   /api/devices/sms-event
+DELETE /api/devices/me
+```
+
+Device SMS ingestion is protected by device-scoped JWT authentication and server-side validation of the linked elder/device state.
+
+---
+
+## Medication Monitoring
+
+Medication monitoring is intentionally server-side so missed-dose detection does not depend on the dashboard being open.
+
+A background `node-cron` job checks medication logs, handles IST calendar dates, detects missed doses, and creates severity-based alerts with idempotent source linking.
+
+The backend also maintains a unique medication-log constraint per medication/date to prevent duplicate daily logs.
+
+---
+
+## Security
+
+The backend includes:
+
+- JWT authentication for Family/Elder accounts
+- Scoped device JWTs for Android ingestion
+- bcryptjs password hashing
+- Family/role/ownership checks on protected operations
+- Helmet security headers
+- Rate limiting on authentication-sensitive routes
+- Device pairing rate limiting
+- Environment-based secrets
+- HTTPS-only Android communication
+- Input validation for key API payloads
+- MongoDB-backed authorization state
+
+Important secrets are loaded from environment variables rather than committed to the repository.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
 |---|---|
-| Auth | `POST /api/auth/register`, `POST /api/auth/login` |
-| Elders | `GET/POST /api/elders`, `PATCH /api/elders/:id`, `PATCH /api/elders/:id/status` |
-| Family | `GET /api/family/elders` |
-| Medications | `GET/POST /api/medications`, `GET /api/medications/today` |
-| Transactions / Fraud | `POST /api/transactions/analyze` |
-| Alerts | `GET/POST /api/alerts` |
-| AI | `POST /api/ai/analyze-transaction`, `POST /api/ai/hindi-guidance`, `POST /api/ai/safety-message` |
+| Runtime | Node.js |
+| Framework | Express.js |
+| Database | MongoDB Atlas + Mongoose |
+| Authentication | JWT + bcryptjs |
+| AI | Gemini 2.5 Flash API |
+| Background jobs | node-cron |
+| HTTP client | Axios |
+| Security | Helmet, express-rate-limit |
+| Deployment | Render |
 
-All elder-scoped routes are protected by JWT auth plus a server-side ownership check — a family account can only ever see or modify elders it actually owns, regardless of what the frontend sends.
+---
 
-## Running locally
+## Project Structure
+
+```text
+suraksha-digi/
+├── src/
+│   ├── config/
+│   │   ├── db.js
+│   │   └── gemini.js
+│   ├── controllers/
+│   │   ├── aiController.js
+│   │   ├── alertController.js
+│   │   ├── deviceController.js
+│   │   ├── elderController.js
+│   │   ├── familyController.js
+│   │   ├── medicationController.js
+│   │   └── transactionController.js
+│   ├── jobs/
+│   │   └── missedMedicationJob.js
+│   ├── middleware/
+│   │   ├── authMiddleware.js
+│   │   ├── deviceAuthMiddleware.js
+│   │   ├── ownershipMiddleware.js
+│   │   ├── rateLimiter.js
+│   │   └── roleMiddleware.js
+│   ├── models/
+│   │   ├── Alert.js
+│   │   ├── Device.js
+│   │   ├── Elder.js
+│   │   ├── Family.js
+│   │   ├── Medication.js
+│   │   ├── MedicationLog.js
+│   │   └── Transaction.js
+│   ├── routes/
+│   │   ├── aiRoutes.js
+│   │   ├── alertRoutes.js
+│   │   ├── deviceRoutes.js
+│   │   ├── elderRoutes.js
+│   │   ├── familyRoutes.js
+│   │   ├── medicationRoutes.js
+│   │   └── transactionRoutes.js
+│   ├── services/
+│   │   ├── alertService.js
+│   │   └── fraudService.js
+│   ├── utils/
+│   │   ├── aiValidation.js
+│   │   ├── fraudSignals.js
+│   │   ├── istTime.js
+│   │   ├── ownership.js
+│   │   ├── smsParser.js
+│   │   └── validators.js
+│   └── index.js
+├── package.json
+└── package-lock.json
+```
+
+---
+
+## Getting Started
+
+**Requirements:** Node.js v18+
 
 ```bash
 git clone https://github.com/aayushtiwari307/suraksha-digi.git
 cd suraksha-digi
 npm install
+npm start
 ```
 
-Create a `.env` file:
+The API runs on port `5000` by default unless `PORT` is set.
 
-```
-MONGO_URI=your_mongodb_atlas_connection_string
-JWT_SECRET=your_secret
-GEMINI_API_KEY=your_gemini_key
-```
+### Environment variables
 
-> Requires a replica-set-backed MongoDB (MongoDB Atlas, including the free tier, qualifies) — alert creation uses real database transactions.
-
-```bash
-npm run dev
+```text
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+GEMINI_API_KEY=your_gemini_api_key
+PORT=5000
 ```
 
-## Known limitations (by design, not oversight)
+Do not commit `.env` files or real credentials.
 
-- SMS ingestion is simulated, not a live telecom/bank integration — an honest scope boundary for a student portfolio project, not a hidden gap.
-- Alerts are in-app only; there's no SMS/WhatsApp/email/push notification layer.
-- No password reset flow yet.
-- A narrow race condition exists in transaction deduplication under near-simultaneous duplicate submissions — it can surface a generic error instead of a graceful "duplicate detected" response, but the database's unique index still guarantees no duplicate record is ever actually created.
+---
+
+## Deployment
+
+The backend is deployed on **Render** and serves the React dashboard and Android companion through the API.
+
+**Live API:** https://suraksha-digi-backend.onrender.com
+
+---
+
+## Known Limitations (by design)
+
+- SMS parsing is regex/keyword based and will not understand every possible bank-message wording; Gemini is used as a fallback when the deterministic parser cannot confidently extract key fields.
+- Only one active Android companion device is supported per elder profile.
+- There is currently no automated forgot-password recovery flow for family accounts.
+- This is a portfolio/demo project and has not undergone production banking or Play Store compliance review.
 
 ---
 
