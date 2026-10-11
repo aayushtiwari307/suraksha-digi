@@ -1,0 +1,32 @@
+:root {
+  --cream: #FAF6F0;
+  --warm-white: #FFF9F2;
+  --deep: #1A1208;
+  --teal: #1D6B6B;
+  --teal-light: #2E9E8E;
+  --teal-pale: #E0F4F1;
+  --amber: #D4820A;
+  --amber-pale: #FEF3DC;
+  --rose: #C84B3C;
+  --rose-pale: #FDECEA;
+  --slate: #4A4035;
+  --muted: #8C7B6B;
+  --border: rgba(212, 130, 10, 0.15);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--cream);
+  color: var(--deep);
+}
+
+input, button {
+  font-family: inherit;
+  font-size: 14px;
+}
