@@ -1,10 +1,12 @@
 <div align="center">
 
+<img src="assets/logo.svg" alt="SurakshaDigi logo" width="110">
+
 # SurakshaDigi
 
 **An elder-safety platform that catches payment fraud from real bank SMS and watches medication adherence, so families don't have to hover.**
 
-[![Live Dashboard](https://img.shields.io/badge/Live%20Dashboard-Vercel-000000?logo=vercel&logoColor=white)](https://suraksha-digi-dashboard.vercel.app)
+[![Live Dashboard](https://img.shields.io/badge/Live_Dashboard-Vercel-000000)](https://suraksha-digi-dashboard.vercel.app)
 [![Live API](https://img.shields.io/badge/Live%20API-Render-46E3B7?logo=render&logoColor=black)](https://suraksha-digi-backend.onrender.com)
 ![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
