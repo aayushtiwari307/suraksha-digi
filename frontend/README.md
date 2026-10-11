@@ -199,3 +199,4 @@ The current frontend is deployed on **Vercel** and connects to the deployed Sura
 ---
 
 Built solo as a portfolio project by [Aayush Tiwari](https://github.com/aayushtiwari307).
+
