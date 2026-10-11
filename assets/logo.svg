@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="SurakshaDigi logo">
+  <defs>
+    <linearGradient id="shield" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1e3a8a"/>
+      <stop offset="1" stop-color="#0a1628"/>
+    </linearGradient>
+  </defs>
+  <path d="M64 6 L112 24 V62 C112 92 92 112 64 122 C36 112 16 92 16 62 V24 Z"
+        fill="url(#shield)" stroke="#f5a623" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M42 65 L58 81 L88 46" fill="none" stroke="#f5a623" stroke-width="11"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
