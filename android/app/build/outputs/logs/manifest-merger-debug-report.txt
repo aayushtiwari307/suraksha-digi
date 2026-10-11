@@ -1,0 +1,105 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:1:1-43:12
+INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:1:1-43:12
+INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:1:1-43:12
+INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:1:1-43:12
+	package
+		INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml
+	android:versionName
+		INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml
+	android:versionCode
+		INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:1:11-69
+uses-permission#android.permission.INTERNET
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:2:5-67
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:2:22-64
+uses-permission#android.permission.RECEIVE_SMS
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:3:5-70
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:3:22-67
+uses-permission#android.permission.RECEIVE_BOOT_COMPLETED
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:4:5-81
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:4:22-78
+uses-feature#android.hardware.telephony
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:5:5-88
+	android:required
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:5:61-85
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:5:19-60
+application
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:7:5-42:19
+INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:7:5-42:19
+	android:extractNativeLibs
+		INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml
+	android:supportsRtl
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:10:9-35
+	android:label
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:9:9-41
+	android:allowBackup
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:8:9-36
+	android:theme
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:11:9-50
+	android:usesCleartextTraffic
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:12:9-45
+activity#com.surakshadigi.companion.MainActivity
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:14:9-19:20
+	android:exported
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:14:48-71
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:14:19-47
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:15:13-18:29
+action#android.intent.action.MAIN
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:16:17-69
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:16:25-66
+category#android.intent.category.LAUNCHER
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:17:17-77
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:17:27-74
+receiver#com.surakshadigi.companion.SmsReceiver
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:21:9-27:20
+	android:exported
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:23:13-36
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:22:13-40
+intent-filter#action:name:android.provider.Telephony.SMS_RECEIVED
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:24:13-26:29
+action#android.provider.Telephony.SMS_RECEIVED
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:25:17-82
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:25:25-79
+receiver#com.surakshadigi.companion.BootReceiver
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:29:9-36:20
+	android:enabled
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:31:13-35
+	android:exported
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:32:13-37
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:30:13-41
+intent-filter#action:name:android.intent.action.BOOT_COMPLETED
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:33:13-35:29
+action#android.intent.action.BOOT_COMPLETED
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:34:17-79
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:34:25-76
+service#com.surakshadigi.companion.UploadJobService
+ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:38:9-41:39
+	android:exported
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:41:13-36
+	android:permission
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:40:13-69
+	android:name
+		ADDED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml:39:13-45
+uses-sdk
+INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\Users\Aayush Tiwari\Downloads\SurakshaDigi_Android_v3\sd_android\app\src\main\AndroidManifest.xml

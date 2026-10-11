@@ -1,0 +1,62 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.surakshadigi.companion.app-debug-4:/values_values.arsc.flat",
+            "map": [
+                {
+                    "source": "C:\\Users\\Aayush Tiwari\\Downloads\\SurakshaDigi_Android_v3\\sd_android\\app\\src\\main\\res\\values\\themes.xml",
+                    "from": {
+                        "startLines": "1",
+                        "startColumns": "4",
+                        "startOffsets": "16",
+                        "endLines": "8",
+                        "endColumns": "12",
+                        "endOffsets": "495"
+                    },
+                    "to": {
+                        "startLines": "6",
+                        "startColumns": "4",
+                        "startOffsets": "240",
+                        "endLines": "13",
+                        "endColumns": "12",
+                        "endOffsets": "719"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\Aayush Tiwari\\Downloads\\SurakshaDigi_Android_v3\\sd_android\\app\\src\\main\\res\\values\\colors.xml",
+                    "from": {
+                        "startLines": "2,1,3",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "58,16,99",
+                        "endColumns": "40,41,41",
+                        "endOffsets": "94,53,136"
+                    },
+                    "to": {
+                        "startLines": "2,3,4",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "55,96,138",
+                        "endColumns": "40,41,41",
+                        "endOffsets": "91,133,175"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\Aayush Tiwari\\Downloads\\SurakshaDigi_Android_v3\\sd_android\\app\\src\\main\\res\\values\\strings.xml",
+                    "from": {
+                        "startLines": "1",
+                        "startColumns": "4",
+                        "startOffsets": "16",
+                        "endColumns": "59",
+                        "endOffsets": "71"
+                    },
+                    "to": {
+                        "startLines": "5",
+                        "startColumns": "4",
+                        "startOffsets": "180",
+                        "endColumns": "59",
+                        "endOffsets": "235"
+                    }
+                }
+            ]
+        }
+    ]
+}
